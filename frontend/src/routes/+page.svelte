@@ -64,7 +64,7 @@
 
 <div class="container mx-auto max-w-2xl p-8 space-y-8">
 	<header class="text-center space-y-4">
-		<h1 class="h1">Meet</h1>
+		<h1 class="h1">Event Planner</h1>
 		<p class="text-lg opacity-75">
 			Plan your next event together. Find a time, vote on decisions, and coordinate as a group.
 		</p>

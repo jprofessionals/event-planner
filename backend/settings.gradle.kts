@@ -10,4 +10,4 @@ pluginManagement {
     }
 }
 
-rootProject.name = "meet-backend"
+rootProject.name = "event-planner-backend"

@@ -2,7 +2,7 @@ services:
   postgres:
     image: postgres:17-alpine
     environment:
-      POSTGRES_DB: meetdb
+      POSTGRES_DB: event_planner_db
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:

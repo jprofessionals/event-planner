@@ -1,5 +1,5 @@
 {
-	"name": "meet-e2e",
+	"name": "event-planner-e2e",
 	"private": true,
 	"type": "module",
 	"scripts": {

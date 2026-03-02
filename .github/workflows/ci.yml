@@ -138,7 +138,7 @@ jobs:
       postgres:
         image: postgres:17-alpine
         env:
-          POSTGRES_DB: meetdb
+          POSTGRES_DB: event_planner_db
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
         ports:
@@ -177,7 +177,7 @@ jobs:
       - name: Start backend
         run: |
           java \
-            -Dquarkus.datasource.jdbc.url=jdbc:postgresql://localhost:5432/meetdb \
+            -Dquarkus.datasource.jdbc.url=jdbc:postgresql://localhost:5432/event_planner_db \
             -Dquarkus.datasource.username=postgres \
             -Dquarkus.datasource.password=postgres \
             -Dquarkus.datasource.devservices.enabled=false \

@@ -1,6 +1,6 @@
-# Meet
+# Event Planner
 
-Online meeting planner — schedule a time, then plan the details together.
+Online event planner — schedule a time, then plan the details together.
 
 ## Getting Started
 

@@ -1,8 +1,8 @@
-# Meet — Architecture
+# Event Planner — Architecture
 
 ## Overview
 
-Meet is an online meeting planner. Groups use it in two stages:
+Event Planner is an online event planner. Groups use it in two stages:
 
 1. **Scheduling** — Find a meeting time via simple voting (Doodle-style) or availability grid (When2meet-style)
 2. **Planning** — Once a time is locked, coordinate details with polls, checklists, comments, and shopping lists
@@ -13,8 +13,9 @@ Participation is flexible: guests join with a passphrase and display name, or op
 
 ```mermaid
 graph LR
-    Browser -->|Static files| Nginx
-    Browser -->|HTTP + SSE| Backend[Quarkus Backend]
+    Browser -->|HTTPS| Caddy
+    Caddy -->|Static files| Frontend[SvelteKit SPA]
+    Caddy -->|/api/*| Backend[Quarkus Backend]
     Backend -->|JDBC| DB[(PostgreSQL)]
     Backend -->|HTTP| ShoppingListAPI[Shopping List API]
 ```
@@ -28,12 +29,12 @@ graph LR
 | Frontend | SvelteKit 2 (SPA/static), Svelte 5, TypeScript |
 | UI | Skeleton UI v4, Tailwind CSS v4 |
 | Testing | Kotest + Testcontainers (backend), Vitest (frontend), Playwright (E2E) |
-| Deployment | Docker Compose, Nginx |
+| Deployment | GitHub Actions CI/CD, Docker, Caddy |
 
 ## Project Structure
 
 ```
-meet/
+event-planner/
 ├── backend/
 │   ├── src/main/kotlin/com/meet/
 │   │   ├── auth/            # User registration, login, JWT
@@ -102,7 +103,7 @@ The pub/sub is in-memory (no external broker), suitable for single-instance depl
 
 ## External Integrations
 
-**Shopping List API** — Meet calls an external service (configurable via `SHOPPING_LIST_API_URL`, default `https://liste.jpro.dev`) to create shared shopping lists. Meet stores only the `share_token` and `widget_url` references. The frontend loads a `<shopping-list-widget>` web component from the external domain.
+**Shopping List API** — Event Planner calls an external service (configurable via `SHOPPING_LIST_API_URL`, default `https://liste.jpro.dev`) to create shared shopping lists. It stores only the `share_token` and `widget_url` references. The frontend loads a `<shopping-list-widget>` web component from the external domain.
 
 ## Testing
 
@@ -135,8 +136,8 @@ This starts the backend (Quarkus dev mode with hot reload) and frontend (SvelteK
 
 ## Deployment
 
-Production runs via Docker Compose (`docker-compose.yml`):
+Production runs via GitHub Actions CI/CD deploying to a devserver:
 
-- **PostgreSQL 17** — persistent volume, health-checked
-- **Backend** — Quarkus native image, connects to PostgreSQL
-- **Frontend** — Static SvelteKit build served by Nginx on port 3000
+- **PostgreSQL 17** — shared system service on devserver
+- **Backend** — Docker container (GraalVM native image from GHCR), port 8090
+- **Frontend** — Static SvelteKit build served by Caddy at `event.jpro.dev`

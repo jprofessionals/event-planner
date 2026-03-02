@@ -14,7 +14,7 @@
 		<div class="container mx-auto flex items-center justify-between">
 			<a href={resolve('/')} class="flex items-center gap-2 font-bold text-lg">
 				<CalendarIcon class="w-5 h-5 text-primary-500" />
-				Meet
+				Event Planner
 			</a>
 
 			<div class="hidden sm:flex items-center gap-2">

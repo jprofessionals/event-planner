@@ -262,7 +262,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: jprofessionals/ansible-dev-vm-controll
-          token: ${{ secrets.ANSIBLE_CONTROLL_DEPLOY_KEY }}
+          ssh-key: ${{ secrets.ANSIBLE_CONTROLL_DEPLOY_KEY }}
           path: ansible-controll
 
       - name: Install Ansible

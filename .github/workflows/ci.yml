@@ -1,0 +1,228 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint & Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            e2e/package-lock.json
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Install e2e dependencies
+        run: npm ci
+        working-directory: e2e
+
+      - name: Kotlin lint
+        run: ./gradlew ktlintCheck
+        working-directory: backend
+
+      - name: Frontend lint
+        run: npm run lint
+        working-directory: frontend
+
+      - name: Frontend format check
+        run: npm run format:check
+        working-directory: frontend
+
+      - name: Frontend type check
+        run: npm run check
+        working-directory: frontend
+
+      - name: E2E lint
+        run: npm run lint
+        working-directory: e2e
+
+      - name: E2E format check
+        run: npm run format:check
+        working-directory: e2e
+
+      - name: E2E type check
+        run: npm run check
+        working-directory: e2e
+
+  backend-test:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Run tests
+        run: ./gradlew test
+        working-directory: backend
+
+      - name: Build JVM jar
+        run: ./gradlew build -x test
+        working-directory: backend
+
+      - name: Upload backend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-build
+          path: backend/build/quarkus-app/
+          retention-days: 1
+
+  frontend-test:
+    name: Frontend Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: frontend
+
+      - name: Run tests
+        run: npx vitest run
+        working-directory: frontend
+
+      - name: Build
+        run: npm run build
+        working-directory: frontend
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/build/
+          retention-days: 1
+
+  e2e-test:
+    name: E2E Tests
+    needs: [lint, backend-test, frontend-test]
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: meetdb
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+
+      - name: Download backend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: backend-build
+          path: backend/build/quarkus-app/
+
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend/build/
+
+      - name: Start backend
+        run: |
+          java \
+            -Dquarkus.datasource.jdbc.url=jdbc:postgresql://localhost:5432/meetdb \
+            -Dquarkus.datasource.username=postgres \
+            -Dquarkus.datasource.password=postgres \
+            -Dquarkus.datasource.devservices.enabled=false \
+            -Dquarkus.flyway.migrate-at-start=true \
+            -jar backend/build/quarkus-app/quarkus-run.jar &
+        env:
+          CI: true
+
+      - name: Wait for backend
+        run: |
+          timeout 30 bash -c 'until curl -sf http://localhost:8080/api/events; do sleep 1; done'
+
+      - name: Install e2e dependencies
+        run: npm ci
+        working-directory: e2e
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: e2e
+
+      - name: Start frontend preview
+        run: |
+          cd frontend && npx vite preview --port 4173 &
+          timeout 10 bash -c 'until curl -sf http://localhost:4173; do sleep 1; done'
+
+      - name: Run E2E tests
+        run: npx playwright test
+        working-directory: e2e
+        env:
+          CI: true
+          FRONTEND_URL: http://localhost:4173
+
+      - name: Upload Playwright report
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-report
+          path: e2e/test-results/
+          retention-days: 7
+
+  build-native:
+    name: Build Native Image
+    needs: [e2e-test]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build native image
+        run: docker build -f Dockerfile -t meet-backend:native .
+        working-directory: backend

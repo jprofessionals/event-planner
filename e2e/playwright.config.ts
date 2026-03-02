@@ -10,6 +10,6 @@ export default defineConfig({
 		screenshot: 'only-on-failure',
 	},
 	projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
-	globalSetup: './global-setup.ts',
-	globalTeardown: './global-teardown.ts',
+	globalSetup: process.env.CI ? undefined : './global-setup.ts',
+	globalTeardown: process.env.CI ? undefined : './global-teardown.ts',
 });

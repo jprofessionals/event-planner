@@ -190,7 +190,7 @@ jobs:
 
       - name: Wait for backend
         run: |
-          timeout 60 bash -c 'until curl -sf http://localhost:8080/api/events; do sleep 1; done'
+          timeout 60 bash -c 'until curl -so /dev/null http://localhost:8080/api/events; do sleep 1; done'
 
       - name: Install e2e dependencies
         run: npm ci

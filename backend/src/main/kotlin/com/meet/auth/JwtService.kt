@@ -14,7 +14,7 @@ class JwtService {
         email: String,
     ): String =
         Jwt
-            .issuer("meet-app")
+            .issuer("event-planner")
             .subject(userId.toString())
             .claim("email", email)
             .expiresIn(86400) // 24 hours

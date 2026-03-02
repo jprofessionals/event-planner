@@ -341,8 +341,8 @@ jobs:
               -e DB_USERNAME=event_planner \
               -e "DB_PASSWORD=$DB_PASSWORD" \
               -e CORS_ORIGINS=https://event.jpro.dev \
-              -e JWT_PRIVATE_KEY_PATH=/keys/privateKey.pem \
-              -e JWT_PUBLIC_KEY_PATH=/keys/publicKey.pem \
+              -e JWT_PRIVATE_KEY_PATH=file:///keys/privateKey.pem \
+              -e JWT_PUBLIC_KEY_PATH=file:///keys/publicKey.pem \
               --restart unless-stopped \
               ghcr.io/jprofessionals/event-planner:latest
 

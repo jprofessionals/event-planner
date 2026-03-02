@@ -10,6 +10,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
+env:
+  PUBLIC_SHOPPING_LIST_API_URL: https://liste.jpro.dev
+
 jobs:
   lint:
     name: Lint & Type Check

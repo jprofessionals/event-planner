@@ -219,13 +219,32 @@ jobs:
           retention-days: 7
 
   build-native:
-    name: Build Native Image
+    name: Build & Push Native Image
     needs: [e2e-test]
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@v4
 
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Build native image
-        run: docker build -f Dockerfile -t meet-backend:native .
+        run: |
+          docker build -f Dockerfile \
+            -t ghcr.io/jprofessionals/event-planner:latest \
+            -t ghcr.io/jprofessionals/event-planner:sha-${GITHUB_SHA::7} \
+            .
         working-directory: backend
+
+      - name: Push to GHCR
+        run: |
+          docker push ghcr.io/jprofessionals/event-planner:latest
+          docker push ghcr.io/jprofessionals/event-planner:sha-${GITHUB_SHA::7}

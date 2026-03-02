@@ -198,9 +198,9 @@ jobs:
         run: npx playwright install --with-deps chromium
         working-directory: e2e
 
-      - name: Start frontend
+      - name: Start frontend with API proxy
         run: |
-          npx -y serve frontend/build -l 4173 --single &
+          node e2e/ci-server.mjs frontend/build 4173 &
           timeout 10 bash -c 'until curl -so /dev/null http://localhost:4173; do sleep 1; done'
 
       - name: Run E2E tests

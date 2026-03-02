@@ -310,8 +310,9 @@ jobs:
       - name: Deploy JWT keys
         run: |
           ssh deploy@${{ vars.VM_HOST }} 'mkdir -p /home/deploy/event-planner/keys'
-          echo "$JWT_PRIVATE_KEY" | ssh deploy@${{ vars.VM_HOST }} 'cat > /home/deploy/event-planner/keys/privateKey.pem && chmod 600 /home/deploy/event-planner/keys/privateKey.pem'
-          echo "$JWT_PUBLIC_KEY" | ssh deploy@${{ vars.VM_HOST }} 'cat > /home/deploy/event-planner/keys/publicKey.pem && chmod 644 /home/deploy/event-planner/keys/publicKey.pem'
+          echo "$JWT_PRIVATE_KEY" | ssh deploy@${{ vars.VM_HOST }} 'cat > /home/deploy/event-planner/keys/privateKey.pem'
+          echo "$JWT_PUBLIC_KEY" | ssh deploy@${{ vars.VM_HOST }} 'cat > /home/deploy/event-planner/keys/publicKey.pem'
+          ssh deploy@${{ vars.VM_HOST }} 'chmod 644 /home/deploy/event-planner/keys/*.pem'
         env:
           JWT_PRIVATE_KEY: ${{ secrets.JWT_PRIVATE_KEY }}
           JWT_PUBLIC_KEY: ${{ secrets.JWT_PUBLIC_KEY }}

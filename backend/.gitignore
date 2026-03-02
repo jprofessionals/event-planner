@@ -15,3 +15,7 @@ Thumbs.db
 .env
 .env.*
 !.env.example
+
+# JWT keys
+src/main/resources/privateKey.pem
+src/main/resources/publicKey.pem

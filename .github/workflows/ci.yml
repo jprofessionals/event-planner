@@ -290,20 +290,19 @@ jobs:
       - name: Set up SSH
         run: |
           mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          ssh-keyscan -H ${{ vars.VM_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ vars.VM_HOST }} >> ~/.ssh/known_hosts
 
       - name: Deploy frontend files
         run: |
           rsync -avz --delete \
-            -e "ssh -i ~/.ssh/deploy_key" \
             frontend-build/ \
             deploy@${{ vars.VM_HOST }}:/home/deploy/event-planner/frontend/
 
       - name: Deploy backend
         run: |
-          ssh -i ~/.ssh/deploy_key deploy@${{ vars.VM_HOST }} bash -s << DEPLOY_SCRIPT
+          ssh deploy@${{ vars.VM_HOST }} bash -s << DEPLOY_SCRIPT
             set -e
 
             echo "Logging in to GHCR..."
@@ -343,5 +342,5 @@ jobs:
       - name: Clean up
         if: always()
         run: |
-          rm -f ~/.ssh/deploy_key
+          rm -f ~/.ssh/id_ed25519
           rm -rf ansible-controll

@@ -248,3 +248,100 @@ jobs:
         run: |
           docker push ghcr.io/jprofessionals/event-planner:latest
           docker push ghcr.io/jprofessionals/event-planner:sha-${GITHUB_SHA::7}
+
+  deploy:
+    name: Deploy to Server
+    needs: [build-native]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout ansible-controll
+        uses: actions/checkout@v4
+        with:
+          repository: jprofessionals/ansible-dev-vm-controll
+          token: ${{ secrets.ANSIBLE_CONTROLL_DEPLOY_KEY }}
+          path: ansible-controll
+
+      - name: Install Ansible
+        run: sudo apt-get update && sudo apt-get install -y ansible
+
+      - name: Extract DB password from vault
+        run: |
+          printf '%s\n' "${{ secrets.VAULT_PASSWORD }}" > /tmp/vault_pass
+          chmod 600 /tmp/vault_pass
+          DB_PASSWORD=$(ansible localhost -m debug \
+            -a "msg={{ vault_event_planner_db_password }}" \
+            -e "@ansible-controll/inventory/group_vars/all.yml" \
+            --vault-password-file /tmp/vault_pass -c local 2>/dev/null \
+            | grep '"msg"' | sed 's/.*"msg": "\(.*\)"/\1/')
+          echo "::add-mask::$DB_PASSWORD"
+          echo "DB_PASSWORD=$DB_PASSWORD" >> "$GITHUB_ENV"
+          rm -f /tmp/vault_pass
+
+      - name: Download frontend artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: frontend-build
+          path: frontend-build/
+
+      - name: Set up SSH
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ vars.VM_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Deploy frontend files
+        run: |
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key" \
+            frontend-build/ \
+            deploy@${{ vars.VM_HOST }}:/home/deploy/event-planner/frontend/
+
+      - name: Deploy backend
+        run: |
+          ssh -i ~/.ssh/deploy_key deploy@${{ vars.VM_HOST }} bash -s << DEPLOY_SCRIPT
+            set -e
+
+            echo "Logging in to GHCR..."
+            echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
+
+            echo "Pulling new image..."
+            docker pull ghcr.io/jprofessionals/event-planner:latest
+
+            echo "Stopping old container..."
+            docker stop event-planner-backend 2>/dev/null || true
+            docker rm event-planner-backend 2>/dev/null || true
+
+            echo "Starting new container..."
+            docker run -d \
+              --name event-planner-backend \
+              --network host \
+              -e QUARKUS_HTTP_PORT=8090 \
+              -e DB_URL=jdbc:postgresql://localhost:5432/event_planner_db \
+              -e DB_USERNAME=event_planner \
+              -e "DB_PASSWORD=$DB_PASSWORD" \
+              -e CORS_ORIGINS=https://event.jpro.dev \
+              --restart unless-stopped \
+              ghcr.io/jprofessionals/event-planner:latest
+
+            echo "Waiting for backend..."
+            timeout 30 bash -c 'until curl -so /dev/null http://localhost:8090/api/events; do sleep 1; done'
+            echo "Backend is healthy!"
+
+            echo "Cleaning up old images..."
+            docker image prune -f
+          DEPLOY_SCRIPT
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GHCR_USER: ${{ github.actor }}
+          DB_PASSWORD: ${{ env.DB_PASSWORD }}
+
+      - name: Clean up
+        if: always()
+        run: |
+          rm -f ~/.ssh/deploy_key
+          rm -rf ansible-controll
